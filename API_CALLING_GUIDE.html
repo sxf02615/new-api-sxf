@@ -1,0 +1,1185 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>本项目API 调用指南</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/bash.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/json.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/javascript.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans SC", sans-serif;
+    color: #1f2937; background: #f8fafc; line-height: 1.7;
+  }
+  .page-header {
+    background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+    color: #fff; padding: 48px 24px; text-align: center;
+  }
+  .page-header h1 { font-size: 2rem; font-weight: 700; letter-spacing: 1px; }
+  .page-header p { margin-top: 8px; opacity: 0.8; font-size: 0.95rem; }
+  .container { max-width: 960px; margin: 0 auto; padding: 32px 24px 64px; }
+
+  /* Table of Contents */
+  .toc { background: #fff; border-radius: 12px; padding: 24px 28px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 32px; }
+  .toc h2 { font-size: 1.25rem; margin-bottom: 16px; color: #1e293b; }
+  .toc ol { list-style: none; counter-reset: toc-counter; columns: 2; column-gap: 32px; }
+  .toc li { counter-increment: toc-counter; margin-bottom: 6px; break-inside: avoid; }
+  .toc li::before { content: counter(toc-counter) "."; color: #6366f1; font-weight: 600; margin-right: 6px; }
+  .toc a { color: #475569; text-decoration: none; font-size: 0.9rem; transition: color 0.2s; }
+  .toc a:hover { color: #6366f1; }
+
+  /* Section */
+  section { background: #fff; border-radius: 12px; padding: 28px 32px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 20px; }
+  h2 { font-size: 1.4rem; color: #1e293b; margin-bottom: 16px; padding-bottom: 8px; border-bottom: 2px solid #e2e8f0; }
+  h3 { font-size: 1.1rem; color: #334155; margin: 20px 0 10px; }
+  h4 { font-size: 1rem; color: #475569; margin: 16px 0 8px; }
+  p { margin-bottom: 12px; color: #475569; }
+  strong { color: #1e293b; }
+
+  /* Code */
+  pre { border-radius: 8px; margin: 12px 0 16px; overflow-x: auto; }
+  pre code { font-size: 0.85rem; line-height: 1.6; }
+  :not(pre) > code {
+    background: #f1f5f9; color: #dc2626; padding: 2px 6px; border-radius: 4px;
+    font-size: 0.85rem; font-family: "SF Mono", "Fira Code", "Fira Mono", monospace;
+  }
+
+  /* Inline code blocks (plain text code blocks) */
+  .code-block-plain {
+    background: #1e293b; color: #e2e8f0; border-radius: 8px; padding: 14px 18px;
+    font-family: "SF Mono", "Fira Code", monospace; font-size: 0.85rem;
+    overflow-x: auto; margin: 12px 0 16px; white-space: pre; line-height: 1.6;
+  }
+
+  /* Lists */
+  ul, ol { margin: 8px 0 12px; padding-left: 24px; color: #475569; }
+  li { margin-bottom: 4px; }
+
+  /* Tables */
+  .table-wrap { overflow-x: auto; margin: 12px 0 16px; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+  thead { background: #f1f5f9; }
+  th, td { border: 1px solid #e2e8f0; padding: 10px 14px; text-align: left; vertical-align: top; }
+  th { font-weight: 600; color: #1e293b; white-space: nowrap; }
+  td { color: #475569; }
+  tr:hover td { background: #f8fafc; }
+  table code { font-size: 0.82rem; }
+
+  /* Dividers */
+  hr { border: none; border-top: 1px solid #e2e8f0; margin: 28px 0; }
+
+  /* Endpoint badge */
+  .method { display: inline-block; font-weight: 700; padding: 0 8px; border-radius: 4px; font-size: 0.8rem; }
+  .method-get { background: #dbeafe; color: #1d4ed8; }
+  .method-post { background: #dcfce7; color: #15803d; }
+  .method-put { background: #fef3c7; color: #b45309; }
+  .method-delete { background: #fee2e2; color: #b91c1c; }
+
+  .endpoint { display: inline-block; background: #f1f5f9; padding: 2px 10px; border-radius: 4px; font-family: monospace; font-size: 0.85rem; color: #334155; }
+
+  .callout { background: #eef2ff; border-left: 4px solid #6366f1; border-radius: 4px; padding: 12px 16px; margin: 12px 0; color: #4338ca; font-size: 0.9rem; }
+
+  /* Section divider with anchor */
+  .section-anchor { scroll-margin-top: 16px; }
+
+  @media (max-width: 768px) {
+    .page-header h1 { font-size: 1.5rem; }
+    section { padding: 20px 16px; }
+    .toc ol { columns: 1; }
+    .toc { padding: 16px; }
+    th, td { padding: 8px 10px; }
+  }
+
+  @media print {
+    body { background: #fff; }
+    section, .toc { box-shadow: none; border: 1px solid #e2e8f0; }
+    .page-header { padding: 24px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <h1>本项目API 调用指南</h1>
+  <p style="color: rgb(223, 219, 219);">统一的 AI API 网关 — 聚合 40+ 上游 AI 提供商</p>
+</div>
+
+<div class="container">
+
+<!-- ============================== TOC ============================== -->
+<div class="toc">
+  <h2>目录</h2>
+  <ol>
+    <li><a href="#sec-1">概述</a></li>
+    <li><a href="#sec-2">认证方式</a></li>
+    <li><a href="#sec-3">模型列表</a></li>
+    <li><a href="#sec-4">聊天补全 (Chat Completions)</a></li>
+    <li><a href="#sec-5">文本补全 (Completions)</a></li>
+    <li><a href="#sec-6">Embedding 嵌入</a></li>
+    <li><a href="#sec-7">图片生成</a></li>
+    <li><a href="#sec-8">语音识别与合成 (Audio)</a></li>
+    <li><a href="#sec-9">Claude Messages API</a></li>
+    <li><a href="#sec-10">Gemini API</a></li>
+    <li><a href="#sec-11">OpenAI Responses API</a></li>
+    <li><a href="#sec-12">Rerank 重排序</a></li>
+    <li><a href="#sec-13">Moderation 内容审核</a></li>
+    <li><a href="#sec-14">Realtime API (WebSocket)</a></li>
+    <li><a href="#sec-15">视频生成</a></li>
+    <li><a href="#sec-16">Midjourney</a></li>
+    <li><a href="#sec-17">Suno 音乐生成</a></li>
+    <li><a href="#sec-18">流式传输 (Streaming)</a></li>
+    <li><a href="#sec-19">Dashboard 兼容 API</a></li>
+    <li><a href="#sec-20">高级功能</a></li>
+    <li><a href="#sec-21">错误处理</a></li>
+  </ol>
+</div>
+
+<p style="color: #dc2626; font-size: 1.5rem; text-align: center; margin-bottom: 24px;">实际可用模型以系统管理员配置为准</p>
+
+<!-- ============================== 1 ============================== -->
+<section id="sec-1" class="section-anchor">
+  <h2>1. 概述</h2>
+  <p><strong>本项目</strong> 是一个 AI API 网关/代理系统，它将 40+ 上游 AI 提供商（OpenAI、Claude、Gemini、Azure、百度、阿里、DeepSeek 等）聚合在统一的 API 后面。您无需直接对接各家厂商的不同接口，只需使用 OpenAI 兼容格式（或其他标准格式）调用本系统即可。</p>
+
+  <h3>基础 URL</h3>
+  <p>所有 API 请求的基础 URL 为：</p>
+  <div class="code-block-plain">http://47.103.129.229:3000</div>
+
+  <h3>快速开始</h3>
+  <pre><code class="language-bash"># 最简单的聊天调用
+curl http://47.103.129.229:3000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-xxxxxx" \
+  -d '{
+    "model": "gpt-4o",
+    "messages": [{"role": "user", "content": "Hello!"}]
+  }'</code></pre>
+</section>
+
+<hr>
+
+<!-- ============================== 2 ============================== -->
+<section id="sec-2" class="section-anchor">
+  <h2>2. 认证方式</h2>
+
+  <h3>2.1 获取 API Key</h3>
+  <p>登录管理后台后，在"令牌"页面创建 API Key。令牌支持三种权限范围：</p>
+  <ul>
+    <li><strong>只读 (ReadOnly)</strong>：仅能查询用量和日志</li>
+    <li><strong>所有 (All)</strong>：可调用所有 API</li>
+    <li><strong>自定义 (Custom)</strong>：只允许访问指定模型</li>
+  </ul>
+
+  <h3>2.2 使用 API Key</h3>
+  <p>在请求头中通过 <code>Authorization</code> 字段传递：</p>
+  <div class="code-block-plain">Authorization: Bearer sk-xxxxxx</div>
+
+  <h3>2.3 与其他系统集成</h3>
+  <p>本系统兼容 OpenAI 的 SDK，可以直接使用：</p>
+
+  <h4>Python</h4>
+  <pre><code class="language-python">import openai
+openai.api_base = "http://47.103.129.229:3000/v1"
+openai.api_key = "sk-xxxxxx"
+
+# 聊天
+response = openai.ChatCompletion.create(
+    model="gpt-4o",
+    messages=[{"role": "user", "content": "Hello"}]
+)</code></pre>
+
+  <h4>JavaScript</h4>
+  <pre><code class="language-javascript">import OpenAI from 'openai';
+
+const client = new OpenAI({
+  baseURL: 'http://47.103.129.229:3000/v1',
+  apiKey: 'sk-xxxxxx',
+});
+
+const response = await client.chat.completions.create({
+  model: 'gpt-4o',
+  messages: [{ role: 'user', content: 'Hello' }],
+});</code></pre>
+</section>
+
+<hr>
+
+<!-- ============================== 3 ============================== -->
+<section id="sec-3" class="section-anchor">
+  <h2>3. 模型列表</h2>
+
+  <h3>3.1 查询可用模型</h3>
+  <pre><code class="language-bash">curl http://47.103.129.229:3000/v1/models \
+  -H "Authorization: Bearer sk-xxxxxx"</code></pre>
+
+  <p>响应示例（OpenAI 格式）：</p>
+  <pre><code class="language-json">{
+  "object": "list",
+  "data": [
+    {
+      "id": "gpt-4o",
+      "object": "model",
+      "created": 1700000000,
+      "owned_by": "openai"
+    },
+    {
+      "id": "claude-3-5-sonnet-20241022",
+      "object": "model",
+      "created": 1700000000,
+      "owned_by": "anthropic"
+    }
+  ]
+}</code></pre>
+
+  <h3>3.2 查询单个模型</h3>
+  <pre><code class="language-bash">curl http://47.103.129.229:3000/v1/models/gpt-4o \
+  -H "Authorization: Bearer sk-xxxxxx"</code></pre>
+
+  <h3>3.3 Gemini 格式模型列表</h3>
+  <pre><code class="language-bash">curl http://47.103.129.229:3000/v1beta/models \
+  -H "Authorization: Bearer sk-xxxxxx"</code></pre>
+
+  <h3>3.4 管理面板查看价格</h3>
+  <pre><code class="language-bash">curl http://47.103.129.229:3000/api/pricing</code></pre>
+  <p>返回所有可用模型的定价信息。</p>
+</section>
+
+<hr>
+
+<!-- ============================== 4 ============================== -->
+<section id="sec-4" class="section-anchor">
+  <h2>4. 聊天补全 (Chat Completions)</h2>
+  <p>这是最核心的 API，兼容 OpenAI 的聊天补全接口。</p>
+
+  <h3>4.1 基本调用</h3>
+  <pre><code class="language-bash">curl http://47.103.129.229:3000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-xxxxxx" \
+  -d '{
+    "model": "gpt-4o",
+    "messages": [
+      {"role": "system", "content": "You are a helpful assistant."},
+      {"role": "user", "content": "What is the capital of France?"}
+    ]
+  }'</code></pre>
+
+  <p>响应：</p>
+  <pre><code class="language-json">{
+  "id": "chatcmpl-xxx",
+  "object": "chat.completion",
+  "created": 1700000000,
+  "model": "gpt-4o",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "The capital of France is Paris."
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 20,
+    "completion_tokens": 7,
+    "total_tokens": 27
+  }
+}</code></pre>
+
+  <h3>4.2 流式调用 (Stream)</h3>
+  <pre><code class="language-bash">curl http://47.103.129.229:3000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-xxxxxx" \
+  -d '{
+    "model": "gpt-4o",
+    "messages": [{"role": "user", "content": "Count from 1 to 5."}],
+    "stream": true
+  }'</code></pre>
+
+  <h3>4.3 多轮对话</h3>
+  <pre><code class="language-bash">curl http://47.103.129.229:3000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-xxxxxx" \
+  -d '{
+    "model": "gpt-4o",
+    "messages": [
+      {"role": "user", "content": "What is AI?"},
+      {"role": "assistant", "content": "AI stands for Artificial Intelligence."},
+      {"role": "user", "content": "Can you elaborate more?"}
+    ]
+  }'</code></pre>
+
+  <h3>4.4 多模态输入（图片理解）</h3>
+  <pre><code class="language-bash">curl http://47.103.129.229:3000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-xxxxxx" \
+  -d '{
+    "model": "gpt-4o",
+    "messages": [
+      {
+        "role": "user",
+        "content": [
+          {"type": "text", "text": "What is in this image?"},
+          {
+            "type": "image_url",
+            "image_url": {
+              "url": "https://example.com/image.jpg"
+            }
+          }
+        ]
+      }
+    ],
+    "max_tokens": 300
+  }'</code></pre>
+
+  <h3>4.5 参数说明</h3>
+  <div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>参数</th><th>类型</th><th>必填</th><th>说明</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>model</code></td><td>string</td><td>是</td><td>模型名称</td></tr>
+      <tr><td><code>messages</code></td><td>array</td><td>是</td><td>消息列表</td></tr>
+      <tr><td><code>stream</code></td><td>boolean</td><td>否</td><td>是否流式输出，默认 false</td></tr>
+      <tr><td><code>max_tokens</code></td><td>integer</td><td>否</td><td>最大生成 token 数</td></tr>
+      <tr><td><code>temperature</code></td><td>number</td><td>否</td><td>采样温度，0-2，默认 1</td></tr>
+      <tr><td><code>top_p</code></td><td>number</td><td>否</td><td>核采样，0-1，默认 1</td></tr>
+      <tr><td><code>n</code></td><td>integer</td><td>否</td><td>生成几个回复，默认 1</td></tr>
+      <tr><td><code>stop</code></td><td>string/array</td><td>否</td><td>停止词</td></tr>
+      <tr><td><code>presence_penalty</code></td><td>number</td><td>否</td><td>话题重复惩罚，-2 到 2</td></tr>
+      <tr><td><code>frequency_penalty</code></td><td>number</td><td>否</td><td>频率惩罚，-2 到 2</td></tr>
+      <tr><td><code>logit_bias</code></td><td>map</td><td>否</td><td>token 偏置</td></tr>
+      <tr><td><code>user</code></td><td>string</td><td>否</td><td>用户标识</td></tr>
+      <tr><td><code>seed</code></td><td>integer</td><td>否</td><td>随机种子，用于可复现结果</td></tr>
+      <tr><td><code>tools</code></td><td>array</td><td>否</td><td>工具调用（函数调用）定义</td></tr>
+      <tr><td><code>tool_choice</code></td><td>string/object</td><td>否</td><td>工具选择策略</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<hr>
+
+<!-- ============================== 5 ============================== -->
+<section id="sec-5" class="section-anchor">
+  <h2>5. 文本补全 (Completions)</h2>
+  <p>传统的文本补全接口（非聊天格式）。</p>
+  <pre><code class="language-bash">curl http://47.103.129.229:3000/v1/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-xxxxxx" \
+  -d '{
+    "model": "gpt-3.5-turbo-instruct",
+    "prompt": "Once upon a time,",
+    "max_tokens": 100,
+    "temperature": 0.8
+  }'</code></pre>
+</section>
+
+<hr>
+
+<!-- ============================== 6 ============================== -->
+<section id="sec-6" class="section-anchor">
+  <h2>6. Embedding 嵌入</h2>
+  <p>将文本转换为向量表示。</p>
+
+  <h3>6.1 单文本嵌入</h3>
+  <pre><code class="language-bash">curl http://47.103.129.229:3000/v1/embeddings \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-xxxxxx" \
+  -d '{
+    "model": "text-embedding-3-small",
+    "input": "The quick brown fox jumps over the lazy dog"
+  }'</code></pre>
+
+  <h3>6.2 批量文本嵌入</h3>
+  <pre><code class="language-bash">curl http://47.103.129.229:3000/v1/embeddings \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-xxxxxx" \
+  -d '{
+    "model": "text-embedding-3-small",
+    "input": [
+      "First text to embed",
+      "Second text to embed",
+      "Third text to embed"
+    ]
+  }'</code></pre>
+
+  <p>参数说明：</p>
+  <div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>参数</th><th>类型</th><th>必填</th><th>说明</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>model</code></td><td>string</td><td>是</td><td>嵌入模型名称</td></tr>
+      <tr><td><code>input</code></td><td>string/array</td><td>是</td><td>输入文本（字符串或字符串数组）</td></tr>
+      <tr><td><code>encoding_format</code></td><td>string</td><td>否</td><td>返回格式，<code>float</code> 或 <code>base64</code></td></tr>
+      <tr><td><code>dimensions</code></td><td>integer</td><td>否</td><td>输出维度（部分模型支持）</td></tr>
+      <tr><td><code>user</code></td><td>string</td><td>否</td><td>用户标识</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<hr>
+
+<!-- ============================== 7 ============================== -->
+<section id="sec-7" class="section-anchor">
+  <h2>7. 图片生成</h2>
+
+  <h3>7.1 DALL-E / 文生图</h3>
+  <pre><code class="language-bash">curl http://47.103.129.229:3000/v1/images/generations \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-xxxxxx" \
+  -d '{
+    "model": "dall-e-3",
+    "prompt": "A cute cat wearing a hat, digital art",
+    "n": 1,
+    "size": "1024x1024",
+    "quality": "standard"
+  }'</code></pre>
+
+  <p>参数说明：</p>
+  <div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>参数</th><th>类型</th><th>必填</th><th>说明</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>model</code></td><td>string</td><td>是</td><td>模型名称</td></tr>
+      <tr><td><code>prompt</code></td><td>string</td><td>是</td><td>图片描述</td></tr>
+      <tr><td><code>n</code></td><td>integer</td><td>否</td><td>生成图片数量，默认 1</td></tr>
+      <tr><td><code>size</code></td><td>string</td><td>否</td><td>尺寸：<code>256x256</code>, <code>512x512</code>, <code>1024x1024</code> 等</td></tr>
+      <tr><td><code>quality</code></td><td>string</td><td>否</td><td>质量：<code>standard</code> 或 <code>hd</code></td></tr>
+      <tr><td><code>style</code></td><td>string</td><td>否</td><td>风格：<code>vivid</code> 或 <code>natural</code></td></tr>
+      <tr><td><code>response_format</code></td><td>string</td><td>否</td><td>返回格式：<code>url</code> 或 <code>b64_json</code></td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>7.2 图片编辑</h3>
+  <pre><code class="language-bash">curl http://47.103.129.229:3000/v1/images/edits \
+  -H "Authorization: Bearer sk-xxxxxx" \
+  -F "image=@/path/to/image.png" \
+  -F "mask=@/path/to/mask.png" \
+  -F "prompt=Replace the object with a flower" \
+  -F "n=1" \
+  -F "size=1024x1024"</code></pre>
+</section>
+
+<hr>
+
+<!-- ============================== 8 ============================== -->
+<section id="sec-8" class="section-anchor">
+  <h2>8. 语音识别与合成 (Audio)</h2>
+
+  <h3>8.1 语音转文字 (Transcription)</h3>
+  <pre><code class="language-bash">curl http://47.103.129.229:3000/v1/audio/transcriptions \
+  -H "Authorization: Bearer sk-xxxxxx" \
+  -F "file=@/path/to/audio.mp3" \
+  -F "model=whisper-1" \
+  -F "language=zh"</code></pre>
+
+  <h3>8.2 语音翻译 (Translation)</h3>
+  <pre><code class="language-bash">curl http://47.103.129.229:3000/v1/audio/translations \
+  -H "Authorization: Bearer sk-xxxxxx" \
+  -F "file=@/path/to/audio.mp3" \
+  -F "model=whisper-1"</code></pre>
+
+  <h3>8.3 文字转语音 (TTS)</h3>
+  <pre><code class="language-bash">curl http://47.103.129.229:3000/v1/audio/speech \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-xxxxxx" \
+  -d '{
+    "model": "tts-1",
+    "input": "Hello, welcome to our service!",
+    "voice": "alloy",
+    "response_format": "mp3",
+    "speed": 1.0
+  }' \
+  --output speech.mp3</code></pre>
+
+  <p>参数说明：</p>
+  <div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>参数</th><th>类型</th><th>必填</th><th>说明</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>model</code></td><td>string</td><td>是</td><td>TTS 模型名称</td></tr>
+      <tr><td><code>input</code></td><td>string</td><td>是</td><td>要合成的文字</td></tr>
+      <tr><td><code>voice</code></td><td>string</td><td>是</td><td>音色：<code>alloy</code>, <code>echo</code>, <code>fable</code>, <code>onyx</code>, <code>nova</code>, <code>shimmer</code></td></tr>
+      <tr><td><code>response_format</code></td><td>string</td><td>否</td><td>输出格式：<code>mp3</code>, <code>opus</code>, <code>aac</code>, <code>flac</code>, <code>wav</code>, <code>pcm</code></td></tr>
+      <tr><td><code>speed</code></td><td>number</td><td>否</td><td>语速：0.25 到 4.0</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<hr>
+
+<!-- ============================== 9 ============================== -->
+<section id="sec-9" class="section-anchor">
+  <h2>9. Claude Messages API</h2>
+  <p>兼容 Anthropic Claude 的消息 API。</p>
+
+  <pre><code class="language-bash">curl http://47.103.129.229:3000/v1/messages \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-xxxxxx" \
+  -d '{
+    "model": "claude-3-5-sonnet-20241022",
+    "max_tokens": 1024,
+    "messages": [
+      {"role": "user", "content": "Hello, Claude!"}
+    ]
+  }'</code></pre>
+
+  <p>Claude API 特有参数：</p>
+  <div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>参数</th><th>类型</th><th>必填</th><th>说明</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>model</code></td><td>string</td><td>是</td><td>Anthropic 模型名称</td></tr>
+      <tr><td><code>messages</code></td><td>array</td><td>是</td><td>消息列表（role 可以是 user/assistant）</td></tr>
+      <tr><td><code>max_tokens</code></td><td>integer</td><td>是</td><td>最大生成 token 数</td></tr>
+      <tr><td><code>system</code></td><td>string/array</td><td>否</td><td>System prompt</td></tr>
+      <tr><td><code>stream</code></td><td>boolean</td><td>否</td><td>是否流式</td></tr>
+      <tr><td><code>temperature</code></td><td>number</td><td>否</td><td>采样温度</td></tr>
+      <tr><td><code>top_p</code></td><td>number</td><td>否</td><td>核采样</td></tr>
+      <tr><td><code>top_k</code></td><td>integer</td><td>否</td><td>top-k 采样</td></tr>
+      <tr><td><code>stop_sequences</code></td><td>array</td><td>否</td><td>停止序列</td></tr>
+      <tr><td><code>metadata</code></td><td>object</td><td>否</td><td>用户标识等元数据</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<hr>
+
+<!-- ============================== 10 ============================== -->
+<section id="sec-10" class="section-anchor">
+  <h2>10. Gemini API</h2>
+  <p>支持 Google Gemini 的原生 API。</p>
+
+  <h3>10.1 文本生成</h3>
+  <pre><code class="language-bash">curl http://47.103.129.229:3000/v1beta/models/gemini-2.0-flash:generateContent \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-xxxxxx" \
+  -d '{
+    "contents": [
+      {
+        "role": "user",
+        "parts": [{"text": "Explain quantum computing"}]
+      }
+    ],
+    "generationConfig": {
+      "temperature": 0.7,
+      "maxOutputTokens": 2048
+    }
+  }'</code></pre>
+
+  <h3>10.2 流式生成</h3>
+  <pre><code class="language-bash">curl http://47.103.129.229:3000/v1beta/models/gemini-2.0-flash:streamGenerateContent \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-xxxxxx" \
+  -d '{
+    "contents": [
+      {
+        "role": "user",
+        "parts": [{"text": "Tell me a story"}]
+      }
+    ]
+  }'</code></pre>
+
+  <h3>10.3 Gemini 多模态</h3>
+  <pre><code class="language-bash">curl http://47.103.129.229:3000/v1beta/models/gemini-2.0-flash:generateContent \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-xxxxxx" \
+  -d '{
+    "contents": [
+      {
+        "role": "user",
+        "parts": [
+          {"text": "What is in this photo?"},
+          {
+            "inlineData": {
+              "mimeType": "image/jpeg",
+              "data": "/9j/4AAQ..."  // base64 encoded image
+            }
+          }
+        ]
+      }
+    ]
+  }'</code></pre>
+</section>
+
+<hr>
+
+<!-- ============================== 11 ============================== -->
+<section id="sec-11" class="section-anchor">
+  <h2>11. OpenAI Responses API</h2>
+  <p>支持 OpenAI 新的 Responses API。</p>
+
+  <pre><code class="language-bash">curl http://47.103.129.229:3000/v1/responses \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-xxxxxx" \
+  -d '{
+    "model": "gpt-4o",
+    "input": "What is the meaning of life?",
+    "temperature": 0.7,
+    "max_output_tokens": 500
+  }'</code></pre>
+
+  <p>Responses 压缩：</p>
+  <pre><code class="language-bash">curl http://47.103.129.229:3000/v1/responses/compact \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-xxxxxx" \
+  -d '{
+    "model": "gpt-4o",
+    "input": "Hello",
+    "previous_response_id": "resp_xxxxxx"
+  }'</code></pre>
+</section>
+
+<hr>
+
+<!-- ============================== 12 ============================== -->
+<section id="sec-12" class="section-anchor">
+  <h2>12. Rerank 重排序</h2>
+  <p>对文档进行相关性重排序（主要用于 RAG 场景）。</p>
+
+  <pre><code class="language-bash">curl http://47.103.129.229:3000/v1/rerank \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-xxxxxx" \
+  -d '{
+    "model": "jina-reranker-v2-base-multilingual",
+    "query": "What is artificial intelligence?",
+    "documents": [
+      "AI is the simulation of human intelligence in machines.",
+      "Paris is the capital of France.",
+      "Machine learning is a subset of AI."
+    ],
+    "top_n": 3
+  }'</code></pre>
+</section>
+
+<hr>
+
+<!-- ============================== 13 ============================== -->
+<section id="sec-13" class="section-anchor">
+  <h2>13. Moderation 内容审核</h2>
+
+  <pre><code class="language-bash">curl http://47.103.129.229:3000/v1/moderations \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-xxxxxx" \
+  -d '{
+    "model": "text-moderation-latest",
+    "input": "I want to harm someone"
+  }'</code></pre>
+</section>
+
+<hr>
+
+<!-- ============================== 14 ============================== -->
+<section id="sec-14" class="section-anchor">
+  <h2>14. Realtime API (WebSocket)</h2>
+  <p>OpenAI Realtime API 通过 WebSocket 连接。</p>
+
+  <pre><code class="language-bash"># 使用 wscat 工具
+wscat -c "ws://47.103.129.229:3000/v1/realtime?model=gpt-4o-realtime-preview-2024-10-01" \
+  -H "Authorization: Bearer sk-xxxxxx"</code></pre>
+
+  <p>连接后发送 JSON 消息（详见 OpenAI Realtime API 文档）。</p>
+</section>
+
+<hr>
+
+<!-- ============================== 15 ============================== -->
+<section id="sec-15" class="section-anchor">
+  <h2>15. 视频生成</h2>
+
+  <h3>15.1 OpenAI 兼容视频接口</h3>
+  <pre><code class="language-bash"># 创建视频生成任务
+curl http://47.103.129.229:3000/v1/video/generations \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-xxxxxx" \
+  -d '{
+    "model": "sora-2",
+    "prompt": "A cat walking on a sunny beach"
+  }'
+
+# 查询任务状态
+curl http://47.103.129.229:3000/v1/video/generations/:task_id \
+  -H "Authorization: Bearer sk-xxxxxx"</code></pre>
+
+  <h3>15.2 Kling 视频生成</h3>
+  <pre><code class="language-bash"># 文生视频
+curl http://47.103.129.229:3000/kling/v1/videos/text2video \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-xxxxxx" \
+  -d '{
+    "model": "kling-1.6",
+    "prompt": "A dog running in the park"
+  }'
+
+# 图生视频
+curl http://47.103.129.229:3000/kling/v1/videos/image2video \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-xxxxxx" \
+  -d '{
+    "model": "kling-1.6",
+    "image": "https://example.com/input.jpg",
+    "prompt": "Make this image animate"
+  }'</code></pre>
+
+  <h3>15.3 即梦 (Jimeng) 视频</h3>
+  <pre><code class="language-bash">curl http://47.103.129.229:3000/jimeng/ \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-xxxxxx" \
+  -d '{
+    "model": "jimeng-2.0",
+    "prompt": "A cinematic shot of mountains"
+  }'</code></pre>
+</section>
+
+<hr>
+
+<!-- ============================== 16 ============================== -->
+<section id="sec-16" class="section-anchor">
+  <h2>16. Midjourney</h2>
+
+  <h3>16.1 文生图</h3>
+  <pre><code class="language-bash">curl http://47.103.129.229:3000/mj/submit/imagine \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-xxxxxx" \
+  -d '{
+    "prompt": "A beautiful landscape, digital art --ar 16:9",
+    "notify_hook": "https://your-server.com/callback"
+  }'</code></pre>
+
+  <h3>16.2 图生图 (Blend)</h3>
+  <pre><code class="language-bash">curl http://47.103.129.229:3000/mj/submit/blend \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-xxxxxx" \
+  -d '{
+    "base64Array": [
+      "data:image/png;base64,xxx",
+      "data:image/png;base64,yyy"
+    ],
+    "dimensions": {
+      "width": 1024,
+      "height": 1024
+    }
+  }'</code></pre>
+
+  <h3>16.3 图片放大 (Upscale)</h3>
+  <pre><code class="language-bash">curl http://47.103.129.229:3000/mj/submit/change \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-xxxxxx" \
+  -d '{
+    "action": "UPSCALE",
+    "taskId": "xxx-task-id",
+    "index": 1
+  }'</code></pre>
+
+  <h3>16.4 图片变体 (Variation)</h3>
+  <pre><code class="language-bash">curl http://47.103.129.229:3000/mj/submit/change \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-xxxxxx" \
+  -d '{
+    "action": "VARIATION",
+    "taskId": "xxx-task-id",
+    "index": 2
+  }'</code></pre>
+
+  <h3>16.5 查询任务</h3>
+  <pre><code class="language-bash"># 查询单个任务
+curl http://47.103.129.229:3000/mj/task/:id/fetch \
+  -H "Authorization: Bearer sk-xxxxxx"
+
+# 查询多个任务（按条件）
+curl http://47.103.129.229:3000/mj/task/list-by-condition \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-xxxxxx" \
+  -d '{
+    "ids": ["id1", "id2"]
+  }'</code></pre>
+
+  <h3>16.6 图片 Seed 提取</h3>
+  <pre><code class="language-bash">curl http://47.103.129.229:3000/mj/image-seed \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-xxxxxx" \
+  -d '{
+    "imageUrl": "https://example.com/image.png"
+  }'</code></pre>
+
+  <h3>16.7 换脸</h3>
+  <pre><code class="language-bash">curl http://47.103.129.229:3000/mj/insight-face/swap \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-xxxxxx" \
+  -d '{
+    "sourceBase64": "data:image/png;base64,xxx",
+    "targetBase64": "data:image/png;base64,yyy"
+  }'</code></pre>
+</section>
+
+<hr>
+
+<!-- ============================== 17 ============================== -->
+<section id="sec-17" class="section-anchor">
+  <h2>17. Suno 音乐生成</h2>
+
+  <h3>17.1 生成音乐</h3>
+  <pre><code class="language-bash">curl http://47.103.129.229:3000/suno/submit/music \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-xxxxxx" \
+  -d '{
+    "prompt": "A cheerful pop song about summer",
+    "style": "pop",
+    "title": "Summer Day",
+    "custom": false,
+    "instrumental": false
+  }'</code></pre>
+
+  <h3>17.2 查询音乐任务</h3>
+  <pre><code class="language-bash"># 按 ID 查询
+curl http://47.103.129.229:3000/suno/fetch/:id \
+  -H "Authorization: Bearer sk-xxxxxx"
+
+# 批量查询
+curl http://47.103.129.229:3000/suno/fetch \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-xxxxxx" \
+  -d '{
+    "ids": ["id1", "id2"]
+  }'</code></pre>
+</section>
+
+<hr>
+
+<!-- ============================== 18 ============================== -->
+<section id="sec-18" class="section-anchor">
+  <h2>18. 流式传输 (Streaming)</h2>
+
+  <h3>18.1 Chat Completions 流式</h3>
+  <pre><code class="language-bash">curl http://47.103.129.229:3000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-xxxxxx" \
+  -d '{
+    "model": "gpt-4o",
+    "messages": [{"role": "user", "content": "Tell me a long story"}],
+    "stream": true
+  }'</code></pre>
+
+  <p>流式响应每行以 <code>data: </code> 开头，格式如下：</p>
+  <div class="code-block-plain">data: {"id":"chatcmpl-xxx","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"content":"Once"},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-xxx","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"content":" upon"},"finish_reason":null}]}
+
+...
+
+data: [DONE]</div>
+
+  <h3>18.2 流式选项</h3>
+  <p>支持 <code>stream_options</code> 参数，可以在流式结束时返回用量统计：</p>
+  <pre><code class="language-json">{
+  "model": "gpt-4o",
+  "messages": [{"role": "user", "content": "Hello"}],
+  "stream": true,
+  "stream_options": {
+    "include_usage": true
+  }
+}</code></pre>
+
+  <h3>18.3 Claude 流式</h3>
+  <pre><code class="language-bash">curl http://47.103.129.229:3000/v1/messages \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-xxxxxx" \
+  -d '{
+    "model": "claude-3-5-sonnet-20241022",
+    "max_tokens": 1024,
+    "stream": true,
+    "messages": [{"role": "user", "content": "Tell me a story"}]
+  }'</code></pre>
+
+  <h3>18.4 各语言 SDK 流式调用</h3>
+
+  <h4>Python</h4>
+  <pre><code class="language-python">import openai
+openai.api_base = "http://47.103.129.229:3000/v1"
+openai.api_key = "sk-xxxxxx"
+
+response = openai.ChatCompletion.create(
+    model="gpt-4o",
+    messages=[{"role": "user", "content": "Count to 10"}],
+    stream=True
+)
+
+for chunk in response:
+    if chunk.choices[0].delta.get("content"):
+        print(chunk.choices[0].delta.content, end="")</code></pre>
+
+  <h4>JavaScript</h4>
+  <pre><code class="language-javascript">import OpenAI from 'openai';
+
+const client = new OpenAI({
+  baseURL: 'http://47.103.129.229:3000/v1',
+  apiKey: 'sk-xxxxxx',
+});
+
+const stream = await client.chat.completions.create({
+  model: 'gpt-4o',
+  messages: [{ role: 'user', content: 'Count to 10' }],
+  stream: true,
+});
+
+for await (const chunk of stream) {
+  process.stdout.write(chunk.choices[0]?.delta?.content || '');
+}</code></pre>
+</section>
+
+<hr>
+
+<!-- ============================== 19 ============================== -->
+<section id="sec-19" class="section-anchor">
+  <h2>19. Dashboard 兼容 API</h2>
+  <p>兼容 OpenAI 的用量查询接口。</p>
+
+  <h3>19.1 查询订阅信息</h3>
+  <pre><code class="language-bash"># 多个 path 均可访问
+curl http://47.103.129.229:3000/dashboard/billing/subscription \
+  -H "Authorization: Bearer sk-xxxxxx"
+
+curl http://47.103.129.229:3000/v1/dashboard/billing/subscription \
+  -H "Authorization: Bearer sk-xxxxxx"</code></pre>
+
+  <h3>19.2 查询用量</h3>
+  <pre><code class="language-bash">curl "http://47.103.129.229:3000/dashboard/billing/usage?start_date=2025-01-01&amp;end_date=2025-01-31" \
+  -H "Authorization: Bearer sk-xxxxxx"</code></pre>
+</section>
+
+<hr>
+
+<!-- ============================== 20 ============================== -->
+<section id="sec-20" class="section-anchor">
+  <h2>20. 高级功能</h2>
+
+  <h3>20.1 模型映射</h3>
+  <p>如果管理员配置了模型映射，您请求的模型名会被自动映射。例如配置 <code>{"gpt-4": "claude-3-5-sonnet-20241022"}</code> 后，请求 <code>gpt-4</code> 会实际使用 Claude 模型。</p>
+
+  <h3>20.2 令牌模型限制</h3>
+  <p>您创建的 API 令牌可以限制为只能访问特定的模型列表。超过限制会返回 403 错误。</p>
+
+  <h3>20.3 分组系统</h3>
+  <ul>
+    <li><strong>用户分组</strong>：<code>default</code>、<code>vip</code> 等</li>
+    <li><strong>渠道分组</strong>：渠道可以归属不同分组</li>
+    <li><strong>匹配规则</strong>：用户只能使用其分组对应的渠道</li>
+  </ul>
+
+  <h3>20.4 Playground 测试</h3>
+  <p>管理面板中可以使用 Playground 快速测试：</p>
+  <pre><code class="language-bash">curl http://47.103.129.229:3000/pg/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-xxxxxx" \
+  -d '{
+    "model": "gpt-4o",
+    "messages": [{"role": "user", "content": "Hello"}]
+  }'</code></pre>
+
+  <h3>20.5 查询令牌用量</h3>
+  <pre><code class="language-bash">curl http://47.103.129.229:3000/api/usage/token/ \
+  -H "Authorization: Bearer sk-xxxxxx"</code></pre>
+
+  <h3>20.6 查询自身日志</h3>
+  <pre><code class="language-bash">curl http://47.103.129.229:3000/api/log/self \
+  -H "Authorization: Bearer sk-xxxxxx"
+
+# 搜索日志
+curl "http://47.103.129.229:3000/api/log/self/search?keyword=test&amp;page=1" \
+  -H "Authorization: Bearer sk-xxxxxx"</code></pre>
+</section>
+
+<hr>
+
+<!-- ============================== 21 ============================== -->
+<section id="sec-21" class="section-anchor">
+  <h2>21. 错误处理</h2>
+
+  <h3>21.1 HTTP 状态码说明</h3>
+  <div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>状态码</th><th>含义</th><th>说明</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>200</td><td>成功</td><td>请求成功完成</td></tr>
+      <tr><td>400</td><td>请求错误</td><td>请求参数有误</td></tr>
+      <tr><td>401</td><td>未认证</td><td>API Key 缺失或无效</td></tr>
+      <tr><td>403</td><td>无权限</td><td>API Key 无权限访问该模型</td></tr>
+      <tr><td>429</td><td>频率限制</td><td>请求过于频繁，请稍后重试</td></tr>
+      <tr><td>500</td><td>服务端错误</td><td>上游服务出错或内部异常</td></tr>
+      <tr><td>502</td><td>上游错误</td><td>上游 AI 提供商返回错误</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>21.2 错误响应格式</h3>
+  <pre><code class="language-json">{
+  "error": {
+    "message": "当前分组上游负载已饱和，请稍后再试",
+    "type": "api_error",
+    "param": null,
+    "code": "insufficient_quota"
+  }
+}</code></pre>
+
+  <h3>21.3 常见错误及处理</h3>
+  <div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>错误信息</th><th>可能原因</th><th>处理方式</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>insufficient_quota</code></td><td>额度不足</td><td>充值或联系管理员</td></tr>
+      <tr><td><code>当前分组上游负载已饱和</code></td><td>渠道不可用</td><td>稍后重试</td></tr>
+      <tr><td><code>model not found</code></td><td>模型不存在或未配置</td><td>检查模型名称</td></tr>
+      <tr><td><code>invalid_api_key</code></td><td>API Key 无效</td><td>检查 API Key</td></tr>
+      <tr><td><code>rate limit exceeded</code></td><td>触发限流</td><td>降低请求频率</td></tr>
+      <tr><td><code>stream timeout</code></td><td>流式请求超时</td><td>增大超时设置或减少生成量</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<hr>
+
+<!-- ============================== APPENDICES ============================== -->
+<section class="section-anchor">
+  <h2>附录</h2>
+
+  <h3>A. 常用 curl 请求模板</h3>
+  <pre><code class="language-bash"># Chat Completions
+curl http://47.103.129.229:3000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-xxxxxx" \
+  -d '{"model": "gpt-4o", "messages": [{"role": "user", "content": "Hello"}]}'
+
+# 流式 Chat
+curl -N http://47.103.129.229:3000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-xxxxxx" \
+  -d '{"model": "gpt-4o", "messages": [{"role": "user", "content": "Hello"}], "stream": true}'
+
+# Embeddings
+curl -N http://47.103.129.229:3000/v1/embeddings \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-xxxxxx" \
+  -d '{"model": "text-embedding-3-small", "input": "Hello world"}'
+
+# 图片生成
+curl http://47.103.129.229:3000/v1/images/generations \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-xxxxxx" \
+  -d '{"model": "dall-e-3", "prompt": "A cat", "n": 1, "size": "1024x1024"}'</code></pre>
+
+  <h3>B. 各语言 SDK 调用示例</h3>
+
+  <h4>Python</h4>
+  <pre><code class="language-python">import openai
+
+openai.api_base = "http://47.103.129.229:3000/v1"
+openai.api_key = "sk-xxxxxx"
+
+# 聊天
+response = openai.ChatCompletion.create(
+    model="gpt-4o",
+    messages=[{"role": "user", "content": "Hello"}]
+)
+print(response.choices[0].message.content)
+
+# Embeddings
+response = openai.Embedding.create(
+    model="text-embedding-3-small",
+    input="Hello world"
+)
+print(response.data[0].embedding)
+
+# 图片生成
+response = openai.Image.create(
+    model="dall-e-3",
+    prompt="A cute cat",
+    n=1,
+    size="1024x1024"
+)
+print(response.data[0].url)</code></pre>
+
+  <h4>JavaScript</h4>
+  <pre><code class="language-javascript">import OpenAI from 'openai';
+
+const client = new OpenAI({
+  baseURL: 'http://47.103.129.229:3000/v1',
+  apiKey: 'sk-xxxxxx',
+});
+
+// 聊天
+const chatResponse = await client.chat.completions.create({
+  model: 'gpt-4o',
+  messages: [{ role: 'user', content: 'Hello' }],
+});
+console.log(chatResponse.choices[0].message.content);
+
+// Embeddings
+const embResponse = await client.embeddings.create({
+  model: 'text-embedding-3-small',
+  input: 'Hello world',
+});
+console.log(embResponse.data[0].embedding);
+
+// 图片生成
+const imgResponse = await client.images.generate({
+  model: 'dall-e-3',
+  prompt: 'A cute cat',
+  n: 1,
+  size: '1024x1024',
+});
+console.log(imgResponse.data[0].url);</code></pre>
+
+  <h3>C. 支持的主要模型示例</h3>
+  <div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>模型名称</th><th>类型</th><th>说明</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>gpt-4o</code> / <code>gpt-4o-mini</code></td><td>Chat</td><td>OpenAI 最新模型</td></tr>
+      <tr><td><code>claude-3-5-sonnet-20241022</code></td><td>Chat</td><td>Anthropic Claude</td></tr>
+      <tr><td><code>claude-3-opus-20240229</code></td><td>Chat</td><td>Anthropic Claude Opus</td></tr>
+      <tr><td><code>deepseek-chat</code> / <code>deepseek-reasoner</code></td><td>Chat</td><td>DeepSeek</td></tr>
+      <tr><td><code>gemini-2.0-flash</code> / <code>gemini-2.5-pro</code></td><td>Chat</td><td>Google Gemini</td></tr>
+      <tr><td><code>qwen-max</code> / <code>qwen-plus</code></td><td>Chat</td><td>阿里通义千问</td></tr>
+      <tr><td><code>glm-4-plus</code></td><td>Chat</td><td>智谱 GLM</td></tr>
+      <tr><td><code>ERNIE-4.0</code></td><td>Chat</td><td>百度文心</td></tr>
+      <tr><td><code>text-embedding-3-small</code> / <code>text-embedding-3-large</code></td><td>Embedding</td><td>OpenAI 嵌入</td></tr>
+      <tr><td><code>dall-e-3</code></td><td>Image</td><td>OpenAI 图片生成</td></tr>
+      <tr><td><code>whisper-1</code></td><td>Audio</td><td>语音转文字</td></tr>
+      <tr><td><code>tts-1</code> / <code>tts-1-hd</code></td><td>Audio</td><td>文字转语音</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>实际可用模型以系统管理员配置为准，可通过查询模型列表接口获取。</p>
+</section>
+
+</div>
+
+<script>hljs.highlightAll();</script>
+</body>
+</html>
