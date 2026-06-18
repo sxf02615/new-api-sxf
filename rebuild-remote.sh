@@ -30,7 +30,7 @@ echo ""
 echo "==================================================="
 echo "启动 Docker Compose 服务"
 echo "==================================================="
-docker-compose up -d
+docker compose up -d
 
 # 5. 等待服务启动
 echo "等待服务启动..."
@@ -39,7 +39,7 @@ sleep 3
 # 6. 显示状态
 echo ""
 echo "容器状态:"
-docker-compose ps
+docker compose ps
 
 echo ""
 echo "镜像信息:"

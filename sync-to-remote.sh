@@ -4,7 +4,7 @@
 #
 #  新-API 项目同步脚本 (new-api Project Sync Script)
 #
-#  功能: 从本地 macOS 同步源代码到远程 Ubuntu 服务器，支持备份、构建和部署
+#  功能: 从本地 macOS 同步源代码到远程 Ubuntu 服务器，支持备份和同步
 #
 #  使用方法:
 #    ./sync-to-remote.sh [选项]
@@ -20,16 +20,12 @@
 #    --check-only              仅检查SSH连接，不执行任何同步操作
 #
 #  备份选项:
-#    --backup-only             仅执行备份，不同步文件和构建镜像
-#    --skip-backup             跳过备份操作，直接进行同步和构建
+#    --backup-only             仅执行备份，不同步文件
+#    --skip-backup             跳过备份操作，直接进行同步
 #
 #  同步选项:
 #    --use-rsync               使用 rsync 方式同步（推荐，增量同步，速度快）
 #                              默认使用 tar + scp 方式
-#
-#  镜像构建选项:
-#    --rebuild                 同步文件后自动重新构建镜像并启动容器
-#    --rebuild-only            仅重新构建镜像并启动容器（不同步文件和备份）
 #
 #  配置选项:
 #    --remote-host HOST        指定远程服务器（默认值: token）
@@ -39,22 +35,19 @@
 #
 #  使用示例:
 #
-#    1. 备份 + 同步 + 构建镜像（推荐）:
-#       ./sync-to-remote.sh --use-rsync --rebuild
+#    1. 备份 + 同步（推荐）:
+#       ./sync-to-remote.sh --use-rsync
 #
 #    2. 仅检查连接:
 #       ./sync-to-remote.sh --check-only
 #
-#    3. 同步并重新构建镜像（跳过备份）:
-#       ./sync-to-remote.sh --skip-backup --use-rsync --rebuild
+#    3. 同步并跳过备份:
+#       ./sync-to-remote.sh --skip-backup --use-rsync
 #
 #    4. 仅备份，不同步:
 #       ./sync-to-remote.sh --backup-only
 #
-#    5. 仅重新构建镜像（不同步，不备份）:
-#       ./sync-to-remote.sh --rebuild-only
-#
-#    6. 使用 tar + scp 方式同步（网络不稳定时）:
+#    5. 使用 tar + scp 方式同步（网络不稳定时）:
 #       ./sync-to-remote.sh
 #
 ################################################################################
@@ -284,83 +277,6 @@ BASHEOF
     return 0
 }
 
-build_and_run_image() {
-    local script_file="rebuild-remote.sh"
-    
-    print_info "======================================================="
-    print_info "生成远程执行脚本"
-    print_info "======================================================="
-    
-    # 生成脚本文件
-    cat > "$script_file" << 'SCRIPTEOF'
-#!/bin/bash
-
-cd /www/apps/new-api
-
-# 1. 备份当前镜像 (可选)
-mkdir -p docker-backup
-if docker image inspect calciumion/new-api:latest > /dev/null 2>&1; then
-    echo "正在备份镜像..."
-    docker save calciumion/new-api:latest | gzip > docker-backup/docker-image_$(date +%Y%m%d_%H%M%S).tar.gz
-    # 清理7天前的旧镜像备份
-    find docker-backup -name 'docker-image_*.tar.gz' -type f -mtime +7 -delete 2>/dev/null
-fi
-
-# 2. 停止现有容器
-echo "停止现有容器..."
-docker-compose down 2>/dev/null || true
-
-# 3. 构建新镜像
-echo "==================================================="
-echo "构建镜像: calciumion/new-api:latest"
-echo "==================================================="
-# 使用阿里云源加速 (GOPROXY=https://goproxy.cn 用于 Go 模块，APT 用于系统包)
-docker build \
-  --build-arg GOPROXY=https://goproxy.cn,direct \
-  --build-arg APT_MIRROR=mirrors.aliyun.com \
-  -t calciumion/new-api:latest .
-
-# 4. 启动容器
-echo ""
-echo "==================================================="
-echo "启动 Docker Compose 服务"
-echo "==================================================="
-docker-compose up -d
-
-# 5. 等待服务启动
-echo "等待服务启动..."
-sleep 3
-
-# 6. 显示状态
-echo ""
-echo "容器状态:"
-docker-compose ps
-
-echo ""
-echo "镜像信息:"
-docker images | grep calciumion/new-api
-SCRIPTEOF
-
-    # 设置脚本可执行权限
-    chmod +x "$script_file"
-    
-    print_success "脚本已生成: $script_file"
-    print_info ""
-    print_info "使用方法1: 复制脚本到远程后执行"
-    print_info "  scp $script_file token:/tmp/"
-    print_info "  ssh token 'bash /tmp/$script_file'"
-    print_info ""
-    print_info "使用方法2: 直接通过SSH执行本地脚本"
-    print_info "  ssh token 'bash -s' < $script_file"
-    print_info ""
-    print_info "使用方法3: 查看脚本内容后手动在远程执行"
-    print_info "  cat $script_file"
-    print_info "  ssh token  # 连接到远程，然后复制粘贴命令"
-    print_info ""
-    print_info "======================================================="
-    
-    return 0
-}
 
 check_docker_status() {
     print_info "检查远程Docker环境..."
@@ -538,8 +454,6 @@ show_usage() {
     --use-rsync             使用rsync替代scp进行同步(更高效)
     --skip-backup           跳过备份操作，直接同步
     --backup-only           仅执行备份，不同步文件
-    --rebuild               重新构建镜像并启动容器 (需要先同步文件)
-    --rebuild-only          仅重新构建镜像并启动，不同步文件
     --remote-host HOST      指定远程服务器 (默认: $REMOTE_HOST)
     --remote-dir DIR        指定远程目录 (默认: $REMOTE_DIR)
 
@@ -549,9 +463,6 @@ show_usage() {
     $0 --use-rsync               使用rsync同步
     $0 --backup-only             仅备份，不同步
     $0 --skip-backup             跳过备份，直接同步
-    $0 --rebuild                 同步后重新构建镜像并启动容器
-    $0 --rebuild-only            仅重新构建镜像并启动容器
-    $0 --use-rsync --rebuild     使用rsync同步并重新构建镜像
 
 EOF
 }
@@ -566,8 +477,6 @@ main() {
     local dry_run=false
     local skip_backup=false
     local backup_only=false
-    local rebuild=false
-    local rebuild_only=false
     
     # 解析命令行参数
     while [[ $# -gt 0 ]]; do
@@ -594,14 +503,6 @@ main() {
                 ;;
             --backup-only)
                 backup_only=true
-                shift
-                ;;
-            --rebuild)
-                rebuild=true
-                shift
-                ;;
-            --rebuild-only)
-                rebuild_only=true
                 shift
                 ;;
             --remote-host)
@@ -640,24 +541,8 @@ main() {
         exit 1
     fi
     
-    # 重建镜像模式 (仅重建，不同步)
-    if [ "$rebuild_only" = true ]; then
-        print_info "进入仅重建模式..."
-        print_info ""
-        
-        # 直接生成并输出命令
-        if ! build_and_run_image; then
-            exit 1
-        fi
-        
-        print_success "==============================================="
-        print_success "命令生成完成，脚本退出"
-        print_success "==============================================="
-        exit 0
-    fi
-    
-    # 执行备份 (除非跳过或仅重建)
-    if [ "$skip_backup" = false ] && [ "$rebuild_only" = false ]; then
+    # 执行备份 (除非跳过)
+    if [ "$skip_backup" = false ]; then
         if ! backup_remote_project; then
             print_error "备份失败，停止同步"
             exit 1
@@ -689,17 +574,6 @@ main() {
     if [ $? -ne 0 ]; then
         print_error "同步过程中出现错误"
         exit 1
-    fi
-    
-    # 重建镜像和启动容器
-    if [ "$rebuild" = true ]; then
-        print_info ""
-        
-        # 直接生成并输出命令
-        if ! build_and_run_image; then
-            print_error "生成命令失败"
-            exit 1
-        fi
     fi
     
     print_success "======================================================="
