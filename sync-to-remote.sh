@@ -1,7 +1,79 @@
 #!/bin/bash
 
-# 同步项目源代码到远程服务器
-# 使用SSH Token认证和SCP协议
+################################################################################
+#
+#  新-API 项目同步脚本 (new-api Project Sync Script)
+#
+#  功能: 从本地 macOS 同步源代码到远程 Ubuntu 服务器，支持备份、构建和部署
+#
+#  使用方法:
+#    ./sync-to-remote.sh [选项]
+#
+################################################################################
+#
+#  可选项列表:
+#
+#  通用选项:
+#    -h, --help                显示帮助信息
+#
+#  连接检查:
+#    --check-only              仅检查SSH连接，不执行任何同步操作
+#
+#  备份选项:
+#    --backup-only             仅执行备份，不同步文件和构建镜像
+#    --skip-backup             跳过备份操作，直接进行同步和构建
+#
+#  同步选项:
+#    --use-rsync               使用 rsync 方式同步（推荐，增量同步，速度快）
+#                              默认使用 tar + scp 方式
+#
+#  镜像构建选项:
+#    --rebuild                 同步文件后自动重新构建镜像并启动容器
+#    --rebuild-only            仅重新构建镜像并启动容器（不同步文件和备份）
+#
+#  配置选项:
+#    --remote-host HOST        指定远程服务器（默认值: token）
+#    --remote-dir DIR          指定远程项目目录（默认值: /www/apps/new-api）
+#
+################################################################################
+#
+#  使用示例:
+#
+#    1. 备份 + 同步 + 构建镜像（推荐）:
+#       ./sync-to-remote.sh --use-rsync --rebuild
+#
+#    2. 仅检查连接:
+#       ./sync-to-remote.sh --check-only
+#
+#    3. 同步并重新构建镜像（跳过备份）:
+#       ./sync-to-remote.sh --skip-backup --use-rsync --rebuild
+#
+#    4. 仅备份，不同步:
+#       ./sync-to-remote.sh --backup-only
+#
+#    5. 仅重新构建镜像（不同步，不备份）:
+#       ./sync-to-remote.sh --rebuild-only
+#
+#    6. 使用 tar + scp 方式同步（网络不稳定时）:
+#       ./sync-to-remote.sh
+#
+################################################################################
+#
+#  前置条件:
+#
+#    本地:
+#      - macOS 环境
+#      - SSH 密钥已配置到 ~/.ssh/config，服务器别名为 token
+#      - SSH 密钥已加载到 ssh-agent: ssh-add ~/.ssh/id_rsa_pi
+#
+#    远程:
+#      - Ubuntu 服务器，SSH 可访问
+#      - Docker 已安装
+#      - Docker Compose 已安装
+#      - 项目目录: /www/apps/new-api
+#      - Dockerfile 和 docker-compose.yml 存在
+#
+################################################################################
 
 set -e
 
@@ -20,6 +92,12 @@ LOCAL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # SCP选项 (递归、保留权限、显示进度)
 SCP_OPTS="-r -p -v"
+
+# Docker 镜像名称
+DOCKER_IMAGE="calciumion/new-api"
+
+# Docker 镜像保留天数
+IMAGE_KEEP_DAYS=7
 
 # ============================================================================
 # 颜色定义
@@ -53,27 +131,29 @@ print_error() {
 
 check_ssh_connection() {
     print_info "检查SSH连接到 $REMOTE_HOST..."
-    if ssh -q -o ConnectTimeout=5 "$REMOTE_HOST" exit; then
+    # 增加连接超时到20秒，启用keep-alive
+    if ssh -q -o ConnectTimeout=20 -o BatchMode=yes -o ServerAliveInterval=10 "$REMOTE_HOST" exit 2>/dev/null; then
         print_success "SSH连接正常"
         return 0
     else
         print_error "无法连接到 $REMOTE_HOST"
-        print_info "请确保:"
-        print_info "  1. SSH密钥已正确配置"
-        print_info "  2. ~/.ssh/config 中已配置 $REMOTE_HOST 主机"
-        print_info "  3. 远程服务器可访问"
+        print_info "排查步骤："
+        print_info "  1. 检查网络: ping 47.103.129.229"
+        print_info "  2. 检查SSH密钥: ssh-add -l"
+        print_info "  3. 测试SSH连接: ssh -vv token"
+        print_info "  4. 验证配置: ssh -G token"
         return 1
     fi
 }
 
 check_remote_dir() {
     print_info "检查远程目录 $REMOTE_DIR..."
-    if ssh "$REMOTE_HOST" test -d "$REMOTE_DIR"; then
+    if ssh -o ConnectTimeout=20 -o BatchMode=yes "$REMOTE_HOST" test -d "$REMOTE_DIR"; then
         print_success "远程目录存在"
         return 0
     else
         print_warn "远程目录不存在，将创建..."
-        ssh "$REMOTE_HOST" mkdir -p "$REMOTE_DIR" || {
+        ssh -o ConnectTimeout=20 -o BatchMode=yes "$REMOTE_HOST" mkdir -p "$REMOTE_DIR" || {
             print_error "创建远程目录失败"
             return 1
         }
@@ -94,7 +174,7 @@ backup_remote_project() {
     
     # 创建备份目录
     print_info "创建备份目录 $backup_dir..."
-    ssh "$REMOTE_HOST" mkdir -p "$backup_dir" || {
+    ssh -o ConnectTimeout=20 -o BatchMode=yes "$REMOTE_HOST" mkdir -p "$backup_dir" || {
         print_error "创建备份目录失败"
         return 1
     }
@@ -107,9 +187,9 @@ backup_remote_project() {
     
     # 使用tar命令在远程服务器上创建压缩包
     # 排除back目录本身和其他不必要的文件
-    ssh "$REMOTE_HOST" bash -c "
-        cd \"$REMOTE_DIR\" && \
-        tar -czf \"$backup_path\" \
+    ssh -o ConnectTimeout=20 -o BatchMode=yes "$REMOTE_HOST" bash << BASHEOF
+        cd "$REMOTE_DIR" && \
+        tar -czf "$backup_path" \
             --exclude='back' \
             --exclude='.git' \
             --exclude='.github' \
@@ -126,9 +206,9 @@ backup_remote_project() {
             --exclude='coverage' \
             --exclude='tmp' \
             . && \
-        ls -lh \"$backup_path\" && \
+        ls -lh "$backup_path" && \
         echo 'Backup completed successfully'
-    "
+BASHEOF
     
     if [ $? -eq 0 ]; then
         print_success "远程备份完成"
@@ -136,7 +216,7 @@ backup_remote_project() {
         
         # 显示备份目录内容
         print_info "备份目录内容:"
-        ssh "$REMOTE_HOST" ls -lh "$backup_dir" | tail -10
+        ssh -o ConnectTimeout=20 -o BatchMode=yes "$REMOTE_HOST" ls -lh "$backup_dir" | tail -10
         
         return 0
     else
@@ -151,55 +231,255 @@ cleanup_old_backups() {
     
     print_info "清理 $keep_days 天前的旧备份..."
     
-    ssh "$REMOTE_HOST" bash -c "
-        find \"$backup_dir\" -name 'backup_*.tar.gz' -type f -mtime +$keep_days -delete 2>/dev/null
+    ssh -o ConnectTimeout=20 -o BatchMode=yes "$REMOTE_HOST" bash << BASHEOF
+        find "$backup_dir" -name 'backup_*.tar.gz' -type f -mtime +$keep_days -delete 2>/dev/null
         echo '旧备份清理完成'
-    "
+BASHEOF
+}
+
+backup_remote_docker_image() {
+    print_info "======================================================="
+    print_info "开始备份远程Docker镜像..."
+    print_info "======================================================="
+    
+    local image_backup_dir="$REMOTE_DIR/docker-backup"
+    local timestamp=$(date +%Y%m%d_%H%M%S)
+    local image_backup_file="docker-image_${timestamp}.tar.gz"
+    local image_backup_path="$image_backup_dir/$image_backup_file"
+    
+    # 创建镜像备份目录
+    print_info "创建镜像备份目录..."
+    ssh -o ConnectTimeout=20 -o BatchMode=yes "$REMOTE_HOST" mkdir -p "$image_backup_dir" || {
+        print_warn "无法创建镜像备份目录，继续执行..."
+        return 0
+    }
+    
+    print_info "备份Docker镜像: $DOCKER_IMAGE:latest"
+    print_info "备份文件: $image_backup_file"
+    
+    # 备份镜像
+    ssh -o ConnectTimeout=20 -o BatchMode=yes "$REMOTE_HOST" bash << BASHEOF
+        if docker image inspect '$DOCKER_IMAGE:latest' > /dev/null 2>&1; then
+            echo '正在保存镜像到文件...'
+            docker save '$DOCKER_IMAGE:latest' | gzip > "$image_backup_path"
+            
+            if [ -f "$image_backup_path" ]; then
+                ls -lh "$image_backup_path"
+                echo '镜像备份完成'
+            else
+                echo '警告: 镜像备份失败，但继续执行'
+            fi
+        else
+            echo '镜像不存在，跳过备份'
+        fi
+BASHEOF
+    
+    # 清理旧镜像备份
+    print_info "清理 $IMAGE_KEEP_DAYS 天前的旧镜像备份..."
+    ssh -o ConnectTimeout=20 -o BatchMode=yes "$REMOTE_HOST" bash << BASHEOF
+        find "$image_backup_dir" -name 'docker-image_*.tar.gz' -type f -mtime +$IMAGE_KEEP_DAYS -delete 2>/dev/null
+        echo '旧镜像备份清理完成'
+BASHEOF
+    
+    return 0
+}
+
+build_and_run_image() {
+    local script_file="rebuild-remote.sh"
+    
+    print_info "======================================================="
+    print_info "生成远程执行脚本"
+    print_info "======================================================="
+    
+    # 生成脚本文件
+    cat > "$script_file" << 'SCRIPTEOF'
+#!/bin/bash
+
+cd /www/apps/new-api
+
+# 1. 备份当前镜像 (可选)
+mkdir -p docker-backup
+if docker image inspect calciumion/new-api:latest > /dev/null 2>&1; then
+    echo "正在备份镜像..."
+    docker save calciumion/new-api:latest | gzip > docker-backup/docker-image_$(date +%Y%m%d_%H%M%S).tar.gz
+    # 清理7天前的旧镜像备份
+    find docker-backup -name 'docker-image_*.tar.gz' -type f -mtime +7 -delete 2>/dev/null
+fi
+
+# 2. 停止现有容器
+echo "停止现有容器..."
+docker-compose down 2>/dev/null || true
+
+# 3. 构建新镜像
+echo "==================================================="
+echo "构建镜像: calciumion/new-api:latest"
+echo "==================================================="
+# 使用阿里云源加速 (GOPROXY=https://goproxy.cn 用于 Go 模块，APT 用于系统包)
+docker build \
+  --build-arg GOPROXY=https://goproxy.cn,direct \
+  --build-arg APT_MIRROR=mirrors.aliyun.com \
+  -t calciumion/new-api:latest .
+
+# 4. 启动容器
+echo ""
+echo "==================================================="
+echo "启动 Docker Compose 服务"
+echo "==================================================="
+docker-compose up -d
+
+# 5. 等待服务启动
+echo "等待服务启动..."
+sleep 3
+
+# 6. 显示状态
+echo ""
+echo "容器状态:"
+docker-compose ps
+
+echo ""
+echo "镜像信息:"
+docker images | grep calciumion/new-api
+SCRIPTEOF
+
+    # 设置脚本可执行权限
+    chmod +x "$script_file"
+    
+    print_success "脚本已生成: $script_file"
+    print_info ""
+    print_info "使用方法1: 复制脚本到远程后执行"
+    print_info "  scp $script_file token:/tmp/"
+    print_info "  ssh token 'bash /tmp/$script_file'"
+    print_info ""
+    print_info "使用方法2: 直接通过SSH执行本地脚本"
+    print_info "  ssh token 'bash -s' < $script_file"
+    print_info ""
+    print_info "使用方法3: 查看脚本内容后手动在远程执行"
+    print_info "  cat $script_file"
+    print_info "  ssh token  # 连接到远程，然后复制粘贴命令"
+    print_info ""
+    print_info "======================================================="
+    
+    return 0
+}
+
+check_docker_status() {
+    print_info "检查远程Docker环境..."
+    
+    ssh -o ConnectTimeout=20 -o BatchMode=yes "$REMOTE_HOST" bash << 'BASHEOF'
+        # 检查Docker是否安装
+        if ! command -v docker &> /dev/null; then
+            echo 'Docker 未安装'
+            exit 1
+        fi
+        
+        # 检查Docker服务是否运行
+        if ! docker ps &>/dev/null; then
+            echo 'Docker 服务未运行或当前用户权限不足'
+            exit 1
+        fi
+        
+        # 检查Docker Compose是否安装
+        if ! command -v docker-compose &> /dev/null; then
+            echo 'Docker Compose 未安装'
+            exit 1
+        fi
+        
+        echo 'Docker 环境检查完成'
+        docker --version
+        docker-compose --version
+BASHEOF
+    
+    if [ $? -eq 0 ]; then
+        print_success "Docker环境检查通过"
+        return 0
+    else
+        print_error "Docker环境检查失败"
+        return 1
+    fi
 }
 
 sync_files() {
     print_info "开始同步文件..."
     print_info "源: $LOCAL_DIR"
     print_info "目标: $REMOTE_HOST:$REMOTE_DIR"
+    print_info "本地系统: $(uname)"
     
-    # 构建排除列表 (不同步的目录/文件)
-    local exclude_opts=""
-    local exclude_patterns=(
-        ".git"
-        ".github"
-        "node_modules"
-        ".vscode"
-        ".idea"
-        "dist"
-        "build"
-        "bin"
-        ".DS_Store"
-        "*.log"
-        ".env"
-        ".env.local"
-        "vendor"
-        ".next"
-        "coverage"
-        ".nyc_output"
-        "tmp"
-        "temp"
-    )
+    local temp_tar="/tmp/new-api-sync-$$.tar.gz"
     
-    for pattern in "${exclude_patterns[@]}"; do
-        exclude_opts="$exclude_opts --exclude='$pattern'"
-    done
+    print_info "打包本地文件..."
     
-    # 执行SCP同步
-    # 使用rsync而不是scp可能更高效，但这里保持用scp + tar的方式
-    eval "scp $SCP_OPTS $exclude_opts \"$LOCAL_DIR/\" \"$REMOTE_HOST:$REMOTE_DIR/\""
+    # 在本地目录中打包所有内容 (macOS和Linux兼容)
+    # 使用 -C 进入目录，然后打包 .，这样包中的内容是相对路径
+    cd "$LOCAL_DIR" || {
+        print_error "无法进入本地目录"
+        return 1
+    }
     
-    if [ $? -eq 0 ]; then
-        print_success "文件同步完成"
-        return 0
-    else
-        print_error "文件同步失败"
+    tar -czf "$temp_tar" \
+        --exclude=".git" \
+        --exclude=".github" \
+        --exclude="node_modules" \
+        --exclude=".vscode" \
+        --exclude=".idea" \
+        --exclude="dist" \
+        --exclude="build" \
+        --exclude="bin" \
+        --exclude=".DS_Store" \
+        --exclude="*.log" \
+        --exclude=".env" \
+        --exclude=".env.local" \
+        --exclude="vendor" \
+        --exclude=".next" \
+        --exclude="coverage" \
+        --exclude=".nyc_output" \
+        --exclude="tmp" \
+        --exclude="temp" \
+        --exclude="back" \
+        --exclude="sync-to-remote.sh" \
+        . 2>/dev/null
+    
+    if [ $? -ne 0 ] || [ ! -f "$temp_tar" ]; then
+        print_error "打包文件失败"
+        rm -f "$temp_tar"
         return 1
     fi
+    
+    local tar_size=$(du -h "$temp_tar" | cut -f1)
+    print_info "压缩包大小: $tar_size"
+    print_info "传输压缩包到远程服务器..."
+    
+    # 转回原始目录
+    cd - > /dev/null || true
+    
+    # 传输到远程 (增加连接超时到20秒)
+    scp -o ConnectTimeout=20 -o BatchMode=yes -p "$temp_tar" "$REMOTE_HOST:/tmp/" || {
+        print_error "传输压缩包失败"
+        rm -f "$temp_tar"
+        return 1
+    }
+    
+    # 在远程解压
+    print_info "在远程服务器解压..."
+    local tar_filename=$(basename "$temp_tar")
+    ssh -o ConnectTimeout=20 -o BatchMode=yes "$REMOTE_HOST" bash << BASHEOF
+        mkdir -p "$REMOTE_DIR" && \
+        cd "$REMOTE_DIR" && \
+        tar -xzf /tmp/$tar_filename && \
+        rm -f /tmp/$tar_filename && \
+        echo '解压完成'
+BASHEOF
+    
+    if [ $? -ne 0 ]; then
+        print_error "远程解压失败"
+        rm -f "$temp_tar"
+        return 1
+    fi
+    
+    # 清理本地临时文件
+    rm -f "$temp_tar"
+    
+    print_success "文件同步完成"
+    return 0
 }
 
 sync_files_with_rsync() {
@@ -215,7 +495,7 @@ sync_files_with_rsync() {
     fi
     
     # rsync 同步 (删除远端多余文件)
-    rsync -avz \
+    rsync -avz --rsh='ssh -o ConnectTimeout=20 -o BatchMode=yes' \
         --delete \
         --exclude='.git' \
         --exclude='.github' \
@@ -258,16 +538,20 @@ show_usage() {
     --use-rsync             使用rsync替代scp进行同步(更高效)
     --skip-backup           跳过备份操作，直接同步
     --backup-only           仅执行备份，不同步文件
+    --rebuild               重新构建镜像并启动容器 (需要先同步文件)
+    --rebuild-only          仅重新构建镜像并启动，不同步文件
     --remote-host HOST      指定远程服务器 (默认: $REMOTE_HOST)
     --remote-dir DIR        指定远程目录 (默认: $REMOTE_DIR)
 
 示例:
-    $0                      备份后同步所有文件
-    $0 --check-only         检查连接
-    $0 --use-rsync          使用rsync同步
-    $0 --backup-only        仅备份，不同步
-    $0 --skip-backup        跳过备份，直接同步
-    $0 --remote-host myhost 同步到指定主机
+    $0                           备份后同步所有文件
+    $0 --check-only              检查连接
+    $0 --use-rsync               使用rsync同步
+    $0 --backup-only             仅备份，不同步
+    $0 --skip-backup             跳过备份，直接同步
+    $0 --rebuild                 同步后重新构建镜像并启动容器
+    $0 --rebuild-only            仅重新构建镜像并启动容器
+    $0 --use-rsync --rebuild     使用rsync同步并重新构建镜像
 
 EOF
 }
@@ -282,6 +566,8 @@ main() {
     local dry_run=false
     local skip_backup=false
     local backup_only=false
+    local rebuild=false
+    local rebuild_only=false
     
     # 解析命令行参数
     while [[ $# -gt 0 ]]; do
@@ -308,6 +594,14 @@ main() {
                 ;;
             --backup-only)
                 backup_only=true
+                shift
+                ;;
+            --rebuild)
+                rebuild=true
+                shift
+                ;;
+            --rebuild-only)
+                rebuild_only=true
                 shift
                 ;;
             --remote-host)
@@ -346,8 +640,24 @@ main() {
         exit 1
     fi
     
-    # 执行备份 (除非跳过)
-    if [ "$skip_backup" = false ]; then
+    # 重建镜像模式 (仅重建，不同步)
+    if [ "$rebuild_only" = true ]; then
+        print_info "进入仅重建模式..."
+        print_info ""
+        
+        # 直接生成并输出命令
+        if ! build_and_run_image; then
+            exit 1
+        fi
+        
+        print_success "==============================================="
+        print_success "命令生成完成，脚本退出"
+        print_success "==============================================="
+        exit 0
+    fi
+    
+    # 执行备份 (除非跳过或仅重建)
+    if [ "$skip_backup" = false ] && [ "$rebuild_only" = false ]; then
         if ! backup_remote_project; then
             print_error "备份失败，停止同步"
             exit 1
@@ -376,16 +686,27 @@ main() {
         sync_files
     fi
     
-    if [ $? -eq 0 ]; then
-        print_success "======================================================="
-        print_success "同步完成！"
-        print_success "远程地址: $REMOTE_HOST:$REMOTE_DIR"
-        print_success "======================================================="
-        exit 0
-    else
+    if [ $? -ne 0 ]; then
         print_error "同步过程中出现错误"
         exit 1
     fi
+    
+    # 重建镜像和启动容器
+    if [ "$rebuild" = true ]; then
+        print_info ""
+        
+        # 直接生成并输出命令
+        if ! build_and_run_image; then
+            print_error "生成命令失败"
+            exit 1
+        fi
+    fi
+    
+    print_success "======================================================="
+    print_success "所有操作完成！"
+    print_success "远程地址: $REMOTE_HOST:$REMOTE_DIR"
+    print_success "======================================================="
+    exit 0
 }
 
 # 运行主程序
