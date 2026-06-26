@@ -16,7 +16,10 @@ version: '3.4' # For compatibility with older Docker versions
 
 services:
   new-api:
-    image: calciumion/new-api:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: new-api:custom
     container_name: new-api
     restart: always
     command: --log-dir /app/logs
@@ -73,8 +76,8 @@ services:
       - pg_data:/var/lib/postgresql/data
     networks:
       - new-api-network
-#    ports:
-#      - "5432:5432"  # Uncomment if you need to access PostgreSQL from outside Docker
+    ports:
+      - "5678:5432"  # Uncomment if you need to access PostgreSQL from outside Docker
 
 #  mysql:
 #    image: mysql:8.2

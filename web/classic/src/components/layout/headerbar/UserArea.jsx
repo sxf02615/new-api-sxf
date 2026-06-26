@@ -142,7 +142,8 @@ const UserArea = ({
       </div>
     );
   } else {
-    const showRegisterButton = !isSelfUseMode;
+    // 临时隐藏注册
+    const showRegisterButton = false;
 
     const commonSizingAndLayoutClass =
       'flex items-center justify-center !py-[10px] !px-1.5';

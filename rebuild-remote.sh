@@ -1,3 +1,10 @@
+用下面两行就可以了
+
+docker compose build --no-cache new-api
+docker compose up -d new-api
+
+
+
 #!/bin/bash
 set -euo pipefail
 
